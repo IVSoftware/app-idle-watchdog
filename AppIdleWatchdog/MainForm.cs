@@ -20,8 +20,11 @@ namespace AppIdleWatchdog
                     _dhostHook = new DisposableHost();
                     _dhostHook.BeginUsing += (sender, e) =>
                     {
-                        _hookID = SetWindowsHookEx(WH_CALLWNDPROCRET, HookCallback,
-                            IntPtr.Zero, GetCurrentThreadId());
+                        _hookID = SetWindowsHookEx(
+                            WH_GETMESSAGE,
+                            HookCallback, 
+                            IntPtr.Zero, 
+                            GetCurrentThreadId());
                     };
                     _dhostHook.FinalDispose += (sender, e) =>
                     {
@@ -123,24 +126,34 @@ namespace AppIdleWatchdog
         {
             if (nCode >= 0)
             {
-                CWPSTRUCT msg = Marshal.PtrToStructure<CWPSTRUCT>(lParam);
-
+                MSG msg = Marshal.PtrToStructure<MSG>(lParam);
+                Debug.WriteLine($"Msg: {(WindowsMessage)msg.message} ({msg.message:X}), hWnd: {msg.hwnd}");
                 Debug.WriteLine($"{(WindowsMessage)msg.message} {FastMessageSearch.Contains((WindowsMessage)msg.message)}");
-//CheckForActivity((WindowsMessage)msg.message);
+                CheckForActivity((WindowsMessage)msg.message);
             }
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
         }
 
-        #region P / I N V O K E
-        private const int WH_CALLWNDPROCRET = 12;
+        #region P / I N V O K E 
+        
+        private const int WH_GETMESSAGE = 3; 
+        
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSG
+        {
+            public IntPtr hwnd;
+            public int message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public int time;
+            public POINT pt;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct CWPSTRUCT
+        private struct POINT
         {
-            public IntPtr lParam;
-            public IntPtr wParam;
-            public int message;
-            public IntPtr hwnd;
+            public int x;
+            public int y;
         }
 
         [DllImport("user32.dll", SetLastError = true)]

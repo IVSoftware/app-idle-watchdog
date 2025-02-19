@@ -1,4 +1,4 @@
-
+﻿
 using IVSoftware.Portable;
 using IVSoftware.Portable.Disposable;
 using System.Diagnostics;
@@ -9,6 +9,7 @@ namespace AppIdleWatchdog
 {
     public partial class MainForm : Form, IMessageFilter
     {
+        // Nested MessageBox class
         private static class MessageBox
         {
             private static readonly Dictionary<int, MethodInfo> _showMethodLookup;
@@ -32,7 +33,7 @@ namespace AppIdleWatchdog
                         .Select(_ => _?.GetType() ?? typeof(object))
                         .Aggregate(17, (hash, type) => hash * 31 + (type?.GetHashCode() ?? 0));
 
-                    if (_showMethodLookup.TryGetValue(argHash, out MethodInfo? bestMatch))
+                    if (_showMethodLookup.TryGetValue(argHash, out var bestMatch) && bestMatch is not null)
                     {
                         return bestMatch.Invoke(null, args) is DialogResult dialogResult
                             ? dialogResult
@@ -61,7 +62,7 @@ namespace AppIdleWatchdog
                     };
                     _dhostHook.FinalDispose += (sender, e) =>
                     {
-                        UnhookWindowsHookEx(_hookID);
+                        if (_hookID != IntPtr.Zero) UnhookWindowsHookEx(_hookID);
                     };
                 }
                 return _dhostHook;
@@ -69,6 +70,7 @@ namespace AppIdleWatchdog
         }
         static DisposableHost? _dhostHook = default;
         static IntPtr _hookID = IntPtr.Zero;
+        private static HookProc _hookProc = null!;
 
         // <PackageReference Include = "IVSoftware.Portable.WatchdogTimer" Version="1.2.1" />
         public WatchdogTimer InactivityWatchdog
@@ -79,7 +81,7 @@ namespace AppIdleWatchdog
                 {
                     _InactivityWatchdog = new WatchdogTimer 
                     { 
-                        Interval = TimeSpan.FromSeconds(2.5) 
+                        Interval = TimeSpan.FromSeconds(2), 
                     };
                     _InactivityWatchdog.RanToCompletion += (sender, e) =>
                     {
@@ -102,7 +104,7 @@ namespace AppIdleWatchdog
             // Button for test
             buttonMsg.Click += (sender, e) =>
             {
-                MessageBox.Show("Testing the TimeOut!");
+                MessageBox.Show("✨ Testing the Hook!");
             };
         }
         // Threadsafe Text Setter
@@ -126,9 +128,7 @@ namespace AppIdleWatchdog
             }
         }
         string _threadsafeText = string.Empty;
-
         object _lock = new object();
-        private static HookProc? _hookProc;
 
         public bool PreFilterMessage(ref Message m)
         {

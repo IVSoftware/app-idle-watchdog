@@ -218,10 +218,11 @@ namespace AppIdleWatchdog
             if (nCode >= 0)
             {
                 MSG msg = Marshal.PtrToStructure<MSG>(lParam);
+                CheckForActivity((WindowsMessage)msg.message);
+
                 const bool LOG_THIS = false;
                 Debug.WriteLineIf(LOG_THIS, $"Msg: {(WindowsMessage)msg.message} ({msg.message:X}), hWnd: {msg.hwnd}");
                 Debug.WriteLineIf(LOG_THIS, $"{(WindowsMessage)msg.message} {_rapidMessageLookup.Contains((WindowsMessage)msg.message)}");
-                CheckForActivity((WindowsMessage)msg.message);
             }
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
         }

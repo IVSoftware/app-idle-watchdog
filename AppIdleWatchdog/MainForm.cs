@@ -85,8 +85,7 @@ namespace AppIdleWatchdog
                     };
                     _InactivityWatchdog.RanToCompletion += (sender, e) =>
                     {
-                        lock (_lock) Text = "Idle";
-                        BeginInvoke(() => Text = "Idle");
+                        Text = "Idle";
                     };
                 }
                 return _InactivityWatchdog;

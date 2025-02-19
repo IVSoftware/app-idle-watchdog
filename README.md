@@ -127,6 +127,7 @@ public WatchdogTimer InactivityWatchdog
 }
 WatchdogTimer? _InactivityWatchdog = default;
 ```
+___
 
 **Minimal MainForm Example**
 

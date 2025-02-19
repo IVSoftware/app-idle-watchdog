@@ -9,9 +9,13 @@ namespace AppIdleWatchdog
 {
     public partial class MainForm : Form, IMessageFilter
     {
+        [Flags]
+        enum Options{ TimeOutClosesMessageBox = 0x1, }
+
         // Nested MessageBox class
         private static class MessageBox
         {
+            internal static Options Options { get; set; }
             private static readonly Dictionary<int, MethodInfo> _showMethodLookup;
             static MessageBox()
             {
@@ -27,6 +31,27 @@ namespace AppIdleWatchdog
             }
             public static DialogResult Show(params object[] args)
             {
+                if (Options.HasFlag(Options.TimeOutClosesMessageBox))
+                {
+                    // Check for an existing owner in args
+                    int ownerIndex = Array.FindIndex(args, arg => arg is IWin32Window);
+
+                    object[] modifiedArgs;
+                    if (ownerIndex >= 0)
+                    {
+                        // Replace the existing owner
+                        modifiedArgs = args.ToArray();
+                        modifiedArgs[ownerIndex] = EphemeralOwner;
+                    }
+                    else
+                    {
+                        // Prepend ephemeral owner
+                        // modifiedArgs = new object[] { EphemeralOwner }.Concat(args).ToArray();
+                        modifiedArgs = args;
+                    }
+
+                    args = modifiedArgs;
+                }
                 using (DHostHook.GetToken())
                 {
                     int argHash = args
@@ -86,6 +111,8 @@ namespace AppIdleWatchdog
                     _InactivityWatchdog.RanToCompletion += (sender, e) =>
                     {
                         Text = "Idle";
+                        _ephemeralOwner?.Dispose();
+                        _ephemeralOwner = null;
                     };
                 }
                 return _InactivityWatchdog;
@@ -93,8 +120,33 @@ namespace AppIdleWatchdog
         }
         WatchdogTimer? _InactivityWatchdog = default;
 
+        static Form EphemeralOwner
+        {
+            get
+            {
+                if (_ephemeralOwner is null)
+                {
+                    _ephemeralOwner = new Form
+                    {
+                        BackColor = Color.Red,
+                        FormBorderStyle = FormBorderStyle.None,
+                        Width = 100,
+                        Height = 100,
+                    }; 
+                    // _ephemeralOwner.SetBounds(-10000, -10000, 1, 1); // Move it off-screen
+                    _ephemeralOwner.Show();
+                }
+                return _ephemeralOwner;
+            }
+        }
+        static Form? _ephemeralOwner = default;
+
+
         public MainForm()
         {
+            // Optional!
+            // MessageBox.Options = Options.TimeOutClosesMessageBox;
+
             InitializeComponent();
             Application.AddMessageFilter(this);
             Disposed += (sender, e) => Application.RemoveMessageFilter(this);

@@ -148,7 +148,7 @@ namespace AppIdleWatchdog
                     InactivityWatchdog.StartOrRestart();
                     if(Text != "Running")
                     {
-                        BeginInvoke(() => Text = "Running");
+                        Text = "Running";
                     }
                     break;
             }

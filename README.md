@@ -54,7 +54,7 @@ Next, make a static class at local (or app) scope that behaves (in a sense) like
     .
     .
     .
-    // Nested MessageBox class nested in MainForm
+    // MessageBox wrapper static class nested in MainForm
     private static class MessageBox
     {
         private static readonly Dictionary<int, MethodInfo> _showMethodLookup;
@@ -72,6 +72,7 @@ Next, make a static class at local (or app) scope that behaves (in a sense) like
         }
         public static DialogResult Show(params object[] args)
         {
+            // Increment the ref count prior to calling native MessageBox
             using (DHostHook.GetToken())
             {
                 int argHash = args
@@ -118,8 +119,7 @@ public WatchdogTimer InactivityWatchdog
             };
             _InactivityWatchdog.RanToCompletion += (sender, e) =>
             {
-                lock (_lock) Text = "Idle";
-                BeginInvoke(() => Text = "Idle");
+                Text = "Idle";
             };
         }
         return _InactivityWatchdog;

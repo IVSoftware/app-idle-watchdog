@@ -1,16 +1,46 @@
 
 using IVSoftware.Portable;
 using IVSoftware.Portable.Disposable;
-using System.Data;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
 
 namespace AppIdleWatchdog
 {
     public partial class MainForm : Form, IMessageFilter
     {
+        private static class MessageBox
+        {
+            private static MethodInfo[] _showMethods;
+            static MessageBox()
+            {
+                _showMethods = typeof(System.Windows.Forms.MessageBox)
+                .GetMethods(BindingFlags.Static | BindingFlags.Public)
+                .Where(_ => _.Name == "Show")
+                 .ToArray();
+                { }
+            }
+            public static DialogResult Show(params object[] args)
+            {
+                Type[] argTypes = args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
+                MethodInfo? bestMatch = 
+                    _showMethods
+                    .FirstOrDefault(m =>
+                        m
+                        .GetParameters()
+                        .Select(p => p.ParameterType)
+                        .SequenceEqual(argTypes));
+
+                return 
+                    bestMatch?.Invoke(null, args) 
+                    is 
+                    DialogResult dialogResult 
+                    ? dialogResult
+                    : DialogResult.None;
+            }
+        }
+
+        // <PackageReference Include="IVSoftware.Portable.Disposable" Version="1.2.0" />
         public DisposableHost DHostHook
         {
             get
@@ -37,6 +67,7 @@ namespace AppIdleWatchdog
         DisposableHost? _dhostHook = default;
         private IntPtr _hookID = IntPtr.Zero;
 
+        // <PackageReference Include = "IVSoftware.Portable.WatchdogTimer" Version="1.2.1" />
         public WatchdogTimer InactivityWatchdog
         {
             get
@@ -67,7 +98,7 @@ namespace AppIdleWatchdog
             {
                 using (DHostHook.GetToken())
                 {
-                    MessageBox.Show(this, "Testing the TimeOut!");
+                    MessageBox.Show("Testing the TimeOut!");
                 }
             };
         }

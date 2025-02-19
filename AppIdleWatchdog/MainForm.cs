@@ -20,18 +20,22 @@ namespace AppIdleWatchdog
                     .Where(_ => _.Name == "Show")
                     .ToDictionary(
                         _ => _.GetParameters()
-                              .Select(p => p.ParameterType)
-                              .Aggregate(17, (hash, type) => hash * 31 + (type?.GetHashCode() ?? 0)),
+                              .Select(p => NormalizeType(p.ParameterType))
+                              .Aggregate(17, (hash, type) => hash * 31 + type.GetHashCode()),
                         _ => _
                     );
             }
+
+            private static Type NormalizeType(Type type) 
+                =>typeof(IWin32Window).IsAssignableFrom(type) ? typeof(IWin32Window) : type;
+
             public static DialogResult Show(params object[] args)
             {
                 using (DHostHook.GetToken())
                 {
                     int argHash = args
-                        .Select(_ => _?.GetType() ?? typeof(object))
-                        .Aggregate(17, (hash, type) => hash * 31 + (type?.GetHashCode() ?? 0));
+                        .Select(_ => _ is IWin32Window ? typeof(IWin32Window) : _?.GetType() ?? typeof(object))
+                        .Aggregate(17, (hash, type) => hash * 31 + type.GetHashCode());
 
                     if (_showMethodLookup.TryGetValue(argHash, out var bestMatch) && bestMatch is not null)
                     {
@@ -103,7 +107,7 @@ namespace AppIdleWatchdog
             // Button for test
             buttonMsg.Click += (sender, e) =>
             {
-                MessageBox.Show("✨ Testing the Hook!");
+                MessageBox.Show(this, "✨ Testing the Hook!");
             };
         }
         // Threadsafe Text Setter

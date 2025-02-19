@@ -97,10 +97,7 @@ namespace AppIdleWatchdog
 
         public bool PreFilterMessage(ref Message m)
         {
-            if (DHostHook.IsZero())
-            {
-                CheckForActivity((WindowsMessage)m.Msg);
-            }
+            CheckForActivity((WindowsMessage)m.Msg);
             return false;
         }
 

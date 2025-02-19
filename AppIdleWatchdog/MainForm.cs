@@ -11,34 +11,40 @@ namespace AppIdleWatchdog
     {
         private static class MessageBox
         {
-            private static MethodInfo[] _showMethods;
+            private static readonly Dictionary<int, MethodInfo> _showMethodLookup;
             static MessageBox()
             {
-                _showMethods = 
-                    typeof(System.Windows.Forms.MessageBox)
+                _showMethodLookup = typeof(System.Windows.Forms.MessageBox)
                     .GetMethods(BindingFlags.Static | BindingFlags.Public)
                     .Where(_ => _.Name == "Show")
-                     .ToArray();
+                    .ToDictionary(
+                        _ => _.GetParameters()
+                              .Select(p => p.ParameterType)
+                              .Aggregate(17, (hash, type) => hash * 31 + (type?.GetHashCode() ?? 0)),
+                        _ => _
+                    );
             }
             public static DialogResult Show(params object[] args)
             {
-                Type[] argTypes = 
-                    args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
-                MethodInfo? bestMatch = 
-                    _showMethods
-                    .FirstOrDefault(_ => _
-                        .GetParameters()
-                        .Select(_ => _.ParameterType)
-                        .SequenceEqual(argTypes));
+                using (DHostHook.GetToken())
+                {
+                    int argHash = args
+                        .Select(_ => _?.GetType() ?? typeof(object))
+                        .Aggregate(17, (hash, type) => hash * 31 + (type?.GetHashCode() ?? 0));
 
-                return bestMatch?.Invoke(null, args) is DialogResult dialogResult 
-                    ? dialogResult
-                    : DialogResult.None;
+                    if (_showMethodLookup.TryGetValue(argHash, out MethodInfo? bestMatch))
+                    {
+                        return bestMatch.Invoke(null, args) is DialogResult dialogResult
+                            ? dialogResult
+                            : DialogResult.None;
+                    }
+                    return DialogResult.None;
+                }
             }
         }
 
         // <PackageReference Include="IVSoftware.Portable.Disposable" Version="1.2.0" />
-        public DisposableHost DHostHook
+        static DisposableHost DHostHook
         {
             get
             {
@@ -49,7 +55,7 @@ namespace AppIdleWatchdog
                     {
                         _hookID = SetWindowsHookEx(
                             WH_GETMESSAGE,
-                            HookCallback, 
+                            _hookProc, 
                             IntPtr.Zero, 
                             GetCurrentThreadId());
                     };
@@ -61,8 +67,8 @@ namespace AppIdleWatchdog
                 return _dhostHook;
             }
         }
-        DisposableHost? _dhostHook = default;
-        private IntPtr _hookID = IntPtr.Zero;
+        static DisposableHost? _dhostHook = default;
+        static IntPtr _hookID = IntPtr.Zero;
 
         // <PackageReference Include = "IVSoftware.Portable.WatchdogTimer" Version="1.2.1" />
         public WatchdogTimer InactivityWatchdog
@@ -91,6 +97,9 @@ namespace AppIdleWatchdog
             InitializeComponent();
             Application.AddMessageFilter(this);
             Disposed += (sender, e) => Application.RemoveMessageFilter(this);
+            _hookProc = HookCallback;
+
+            // Button for test
             buttonMsg.Click += (sender, e) =>
             {
                 MessageBox.Show("Testing the TimeOut!");
@@ -119,6 +128,7 @@ namespace AppIdleWatchdog
         string _threadsafeText = string.Empty;
 
         object _lock = new object();
+        private static HookProc? _hookProc;
 
         public bool PreFilterMessage(ref Message m)
         {
@@ -131,7 +141,7 @@ namespace AppIdleWatchdog
             switch (wm_msg)
             {
                 case WindowsMessage.WM_MOUSEMOVE: // Prioritize
-                case WindowsMessage when FastMessageSearch.Contains(wm_msg):
+                case WindowsMessage when _rapidMessageLookup.Contains(wm_msg):
                     InactivityWatchdog.StartOrRestart();
                     if(Text != "Running")
                     {
@@ -141,7 +151,7 @@ namespace AppIdleWatchdog
             }
         }
 
-        readonly HashSet<WindowsMessage> FastMessageSearch = 
+        readonly HashSet<WindowsMessage> _rapidMessageLookup = 
             new (Enum.GetValues<WindowsMessage>());
 
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -150,7 +160,7 @@ namespace AppIdleWatchdog
             {
                 MSG msg = Marshal.PtrToStructure<MSG>(lParam);
                 Debug.WriteLine($"Msg: {(WindowsMessage)msg.message} ({msg.message:X}), hWnd: {msg.hwnd}");
-                Debug.WriteLine($"{(WindowsMessage)msg.message} {FastMessageSearch.Contains((WindowsMessage)msg.message)}");
+                Debug.WriteLine($"{(WindowsMessage)msg.message} {_rapidMessageLookup.Contains((WindowsMessage)msg.message)}");
                 CheckForActivity((WindowsMessage)msg.message);
             }
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
@@ -191,7 +201,7 @@ namespace AppIdleWatchdog
         [DllImport("kernel32.dll")]
         private static extern uint GetCurrentThreadId();
 
-        private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
+        delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
         #endregion  P / I N V O K E
     }
     enum WindowsMessage

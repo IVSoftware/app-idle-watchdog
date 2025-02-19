@@ -42,3 +42,44 @@ DisposableHost? _dhostHook = default;
 private IntPtr _hookID = IntPtr.Zero;
 ```
 
+___
+
+**MessageBox Forwarder**
+
+Next, make a static class at local (or app) scope that behaves (in a sense) like an "impossible" extension for the static `System.Windows.Forms.MessageBox` class;
+
+```
+public partial class MainForm : Form, IMessageFilter
+{
+    private static class MessageBox
+    {
+        private static MethodInfo[] _showMethods;
+        static MessageBox()
+        {
+            _showMethods = 
+                typeof(System.Windows.Forms.MessageBox)
+                .GetMethods(BindingFlags.Static | BindingFlags.Public)
+                .Where(_ => _.Name == "Show")
+                    .ToArray();
+        }
+        public static DialogResult Show(params object[] args)
+        {
+            Type[] argTypes = 
+                args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
+            MethodInfo? bestMatch = 
+                _showMethods
+                .FirstOrDefault(_ => _
+                    .GetParameters()
+                    .Select(_ => _.ParameterType)
+                    .SequenceEqual(argTypes));
+
+            return bestMatch?.Invoke(null, args) is DialogResult dialogResult 
+                ? dialogResult
+                : DialogResult.None;
+        }
+    }
+    .
+    .
+    .
+}
+```

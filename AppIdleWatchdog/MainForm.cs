@@ -10,7 +10,20 @@ namespace AppIdleWatchdog
     public partial class MainForm : Form, IMessageFilter
     {
         [Flags]
-        enum Options{ TimeOutClosesMessageBox = 0x1, }
+        enum Options
+        {
+            /// <summary>
+            /// If the timer runs out while the message
+            /// box is open, it will close the message box.
+            /// </summary>
+            /// 
+            /// <remarks>
+            /// This closing action WORKS, but as things stand is perceived as 
+            /// activity (restarting the main view as active. Some minor tweaks 
+            /// would need to be made to suppress this if it's undesireable.
+            /// </remarks>
+            TimeOutClosesMessageBox = 0x1, 
+        }
 
         // Nested MessageBox class
         private static class MessageBox

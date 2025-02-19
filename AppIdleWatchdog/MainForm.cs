@@ -156,21 +156,22 @@ namespace AppIdleWatchdog
 
         readonly HashSet<WindowsMessage> _rapidMessageLookup = 
             new (Enum.GetValues<WindowsMessage>());
-
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0)
             {
                 MSG msg = Marshal.PtrToStructure<MSG>(lParam);
-                Debug.WriteLine($"Msg: {(WindowsMessage)msg.message} ({msg.message:X}), hWnd: {msg.hwnd}");
-                Debug.WriteLine($"{(WindowsMessage)msg.message} {_rapidMessageLookup.Contains((WindowsMessage)msg.message)}");
                 CheckForActivity((WindowsMessage)msg.message);
+
+                const bool LOG_THIS = false;
+                Debug.WriteLineIf(LOG_THIS, $"Msg: {(WindowsMessage)msg.message} ({msg.message:X}), hWnd: {msg.hwnd}");
+                Debug.WriteLineIf(LOG_THIS, $"{(WindowsMessage)msg.message} {_rapidMessageLookup.Contains((WindowsMessage)msg.message)}");
             }
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
         }
 
         #region P / I N V O K E 
-        
+
         private const int WH_GETMESSAGE = 3; 
         
         [StructLayout(LayoutKind.Sequential)]

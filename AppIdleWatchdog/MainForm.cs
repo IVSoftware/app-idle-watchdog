@@ -24,11 +24,15 @@ namespace AppIdleWatchdog
                     .Where(_ => _.Name == "Show")
                     .ToDictionary(
                         _ => _.GetParameters()
-                              .Select(p => p.ParameterType)
-                              .Aggregate(17, (hash, type) => hash * 31 + (type?.GetHashCode() ?? 0)),
+                              .Select(p => NormalizeType(p.ParameterType))
+                              .Aggregate(17, (hash, type) => hash * 31 + type.GetHashCode()),
                         _ => _
                     );
             }
+
+            private static Type NormalizeType(Type type)
+                => typeof(IWin32Window).IsAssignableFrom(type) ? typeof(IWin32Window) : type;
+
             public static DialogResult Show(params object[] args)
             {
                 if (Options.HasFlag(Options.TimeOutClosesMessageBox))
@@ -46,8 +50,7 @@ namespace AppIdleWatchdog
                     else
                     {
                         // Prepend ephemeral owner
-                        // modifiedArgs = new object[] { EphemeralOwner }.Concat(args).ToArray();
-                        modifiedArgs = args;
+                        modifiedArgs = new object[] { EphemeralOwner }.Concat(args).ToArray();
                     }
 
                     args = modifiedArgs;
@@ -55,8 +58,8 @@ namespace AppIdleWatchdog
                 using (DHostHook.GetToken())
                 {
                     int argHash = args
-                        .Select(_ => _?.GetType() ?? typeof(object))
-                        .Aggregate(17, (hash, type) => hash * 31 + (type?.GetHashCode() ?? 0));
+                        .Select(_ => _ is IWin32Window ? typeof(IWin32Window) : _?.GetType() ?? typeof(object))
+                        .Aggregate(17, (hash, type) => hash * 31 + type.GetHashCode());
 
                     if (_showMethodLookup.TryGetValue(argHash, out var bestMatch) && bestMatch is not null)
                     {
@@ -126,26 +129,18 @@ namespace AppIdleWatchdog
             {
                 if (_ephemeralOwner is null)
                 {
-                    _ephemeralOwner = new Form
-                    {
-                        BackColor = Color.Red,
-                        FormBorderStyle = FormBorderStyle.None,
-                        Width = 100,
-                        Height = 100,
-                    }; 
-                    // _ephemeralOwner.SetBounds(-10000, -10000, 1, 1); // Move it off-screen
-                    _ephemeralOwner.Show();
+                    _ephemeralOwner = new Form();
+                    _ = _ephemeralOwner.Handle;
                 }
                 return _ephemeralOwner;
             }
         }
         static Form? _ephemeralOwner = default;
 
-
         public MainForm()
         {
             // Optional!
-            // MessageBox.Options = Options.TimeOutClosesMessageBox;
+            MessageBox.Options = Options.TimeOutClosesMessageBox;
 
             InitializeComponent();
             Application.AddMessageFilter(this);
@@ -155,7 +150,7 @@ namespace AppIdleWatchdog
             // Button for test
             buttonMsg.Click += (sender, e) =>
             {
-                MessageBox.Show("✨ Testing the Hook!");
+                MessageBox.Show(this, "✨ Testing the Hook!");
             };
         }
         // Threadsafe Text Setter

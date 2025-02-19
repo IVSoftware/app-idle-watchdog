@@ -14,27 +14,24 @@ namespace AppIdleWatchdog
             private static MethodInfo[] _showMethods;
             static MessageBox()
             {
-                _showMethods = typeof(System.Windows.Forms.MessageBox)
-                .GetMethods(BindingFlags.Static | BindingFlags.Public)
-                .Where(_ => _.Name == "Show")
-                 .ToArray();
-                { }
+                _showMethods = 
+                    typeof(System.Windows.Forms.MessageBox)
+                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    .Where(_ => _.Name == "Show")
+                     .ToArray();
             }
             public static DialogResult Show(params object[] args)
             {
-                Type[] argTypes = args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
+                Type[] argTypes = 
+                    args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
                 MethodInfo? bestMatch = 
                     _showMethods
-                    .FirstOrDefault(m =>
-                        m
+                    .FirstOrDefault(_ => _
                         .GetParameters()
-                        .Select(p => p.ParameterType)
+                        .Select(_ => _.ParameterType)
                         .SequenceEqual(argTypes));
 
-                return 
-                    bestMatch?.Invoke(null, args) 
-                    is 
-                    DialogResult dialogResult 
+                return bestMatch?.Invoke(null, args) is DialogResult dialogResult 
                     ? dialogResult
                     : DialogResult.None;
             }
@@ -96,10 +93,7 @@ namespace AppIdleWatchdog
             Disposed += (sender, e) => Application.RemoveMessageFilter(this);
             buttonMsg.Click += (sender, e) =>
             {
-                using (DHostHook.GetToken())
-                {
-                    MessageBox.Show("Testing the TimeOut!");
-                }
+                MessageBox.Show("Testing the TimeOut!");
             };
         }
         // Threadsafe Text Setter
